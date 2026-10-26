@@ -120,8 +120,10 @@ public class DockDecoration extends RecyclerView.ItemDecoration {
         }
         rect.bottom += namesRoom;
         if (lightGlass && (rect.top != shaderTop || rect.bottom != shaderBottom)) {
-            // The pills' glass (pill_bg: white, 18% fading to 8%), a little fainter over this much larger area.
-            band.setShader(new LinearGradient(0, rect.top, 0, rect.bottom, 0x24FFFFFF, 0x0DFFFFFF,
+            // Liquid glass matching the top bar pills (pill_bg: 0x30FFFFFF to 0x14FFFFFF with subtle specular rim)
+            band.setShader(new LinearGradient(0, rect.top, 0, rect.bottom, 0x33FFFFFF, 0x14FFFFFF,
+                    Shader.TileMode.CLAMP));
+            edge.setShader(new LinearGradient(0, rect.top, 0, rect.bottom, 0x44FFFFFF, 0x22FFFFFF,
                     Shader.TileMode.CLAMP));
             shaderTop = rect.top;
             shaderBottom = rect.bottom;

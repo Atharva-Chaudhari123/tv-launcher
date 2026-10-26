@@ -30,11 +30,11 @@
     <!-- Apps never shown as tiles (e.g. the Live TV app, which the Inputs menu already covers). -->
     <string-array name="hidden_apps">
         <item>com.mediatek.wwtv.tvcenter</item>
-        <item>com.mitv.gallery</item>
+        <item>com.android.tv</item>
     </string-array>
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
-    <string name="live_tv_package" translatable="false">com.mediatek.wwtv.tvcenter</string>
+    <string name="live_tv_package" translatable="false">com.android.tv</string>
 
     <!-- Open the Live TV app above the first time Home comes up after the TV is switched on, for sets that are
          mostly used for broadcast TV. Once per boot: Home after that stays Home. Can also be set with
@@ -223,7 +223,7 @@
          set with "wifi_status_color": true in a theme's config.json. -->
     <bool name="wifi_status_color">false</bool>
     <!-- The app library as a round button in the top bar, beside Settings (app_library must be on too). -->
-    <bool name="library_button">false</bool>
+    <bool name="library_button">true</bool>
     <!-- With icon_only_buttons: keep the network name on the Wi-Fi pill up to this width in dp, cut with an ellipsis.
          0 leaves the Wi-Fi pill as an icon. -->
     <integer name="wifi_label_width">0</integer>
@@ -254,7 +254,7 @@
     <!-- Hold OK on a tile opens a small menu: Move (picks the tile up for reordering), Remove from Home (only with
          app_library) and App info. false keeps the old behaviour: holding OK opens the app's App info page.
          Can also be set with "tile_menu": true in a theme's config.json. -->
-    <bool name="tile_menu">false</bool>
+    <bool name="tile_menu">true</bool>
 
     <!-- Grid rows left visible under the dock on the home screen. 0 = dock sits at the very bottom. Tiles shrink if
          the dock, its title and this many rows would not otherwise fit the screen height. -->
@@ -274,13 +274,13 @@
 
     <!-- Optional Default-home tile; keep this key for existing themes and tile-ordering work.
          Off by default because the chooser is also available from launcher settings. -->
-    <bool name="show_home_settings_shortcut">false</bool>
+    <bool name="show_home_settings_shortcut">true</bool>
 
     <!-- Installed launchable apps, including ordinary Android apps. Also settable in config.json. -->
-    <bool name="app_library">false</bool>
+    <bool name="app_library">true</bool>
     <!-- Optional direct Home picker in the app library: OK toggles the checkmark, checked apps first.
          Off by default; a theme can set "app_library_selection": true (also needs app_library). -->
-    <bool name="app_library_selection">false</bool>
+    <bool name="app_library_selection">true</bool>
 
     <!-- Apps pre-seeded into the App library's "added" set at startup (config.xml library_apps, or a theme's
          config.json). They show on Home as if the owner had added them in the App library UI, and stay

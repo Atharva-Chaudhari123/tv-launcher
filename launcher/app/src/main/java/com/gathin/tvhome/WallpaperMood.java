@@ -15,11 +15,12 @@ import java.util.Set;
  * has none of the collection's pictures, falls back to the whole collection.
  */
 final class WallpaperMood {
-    static final String MORNING = "morning", EVENING = "evening", NIGHT = "night";
-    static final String[] ALL = {MORNING, EVENING, NIGHT};
+    static final String MORNING = "morning", AFTERNOON = "afternoon", EVENING = "evening", NIGHT = "night";
+    static final String[] ALL = {MORNING, AFTERNOON, EVENING, NIGHT};
     /** Sunrise and sunset in minutes of the day, without a place (or where the sun does not rise or set that day). */
     static final int DEFAULT_SUNRISE = 7 * 60, DEFAULT_SUNSET = 18 * 60 + 30;
     private static final int NOON = 12 * 60;
+    private static final int EVENING_START = 17 * 60;
     /** Evening lasts this long after sunset, while the sky still glows. */
     private static final int DUSK_MINUTES = 30;
 
@@ -28,8 +29,13 @@ final class WallpaperMood {
 
     /** The mood at this minute of the day, for a sunrise and sunset in minutes of the day. */
     static String timeOfDay(int minute, int sunrise, int sunset) {
+        return timeOfDay(minute, sunrise, sunset, false);
+    }
+
+    static String timeOfDay(int minute, int sunrise, int sunset, boolean hasAfternoon) {
         if (minute >= sunrise && minute < NOON) return MORNING;
-        if (minute >= NOON && minute < sunset + DUSK_MINUTES) return EVENING;
+        if (hasAfternoon && minute >= NOON && minute < EVENING_START) return AFTERNOON;
+        if (minute >= (hasAfternoon ? EVENING_START : NOON) && minute < sunset + DUSK_MINUTES) return EVENING;
         return NIGHT;
     }
 

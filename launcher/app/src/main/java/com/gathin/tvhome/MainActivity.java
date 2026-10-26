@@ -400,6 +400,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // The glow is one bitmap, so its alpha can be applied while drawing it. Otherwise every frame of
         // a fade renders it into a full-screen offscreen buffer first.
         ambient.forceHasOverlappingRendering(false);
+        ambient.setScaleX(1f);
+        ambient.setScaleY(1f);
+        ambient.setTranslationX(0f);
+        ambient.setTranslationY(0f);
         ambientGlow = cfg.ambientGlow;
         appGlow = cfg.appGlow;
         if (!ambientGlow) ambient.setVisibility(View.GONE);
@@ -539,7 +543,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // Keep the hero below the header when the library is enabled on a short screen,
             // even when the theme requests an extra visible row below the dock.
             int shelfClearance = cfg.appLibrary ? hero.getMeasuredHeight() + (int) (40 * density) : 0;
-            int want = Math.max(shelfClearance, h - dockRow - gridRows - (int) (AppAdapter.BOTTOM_ROOM_DP * density));
+            // Push the dock down to the bottom of the screen when rowsBelowDock is 0, keeping the 2nd row completely offscreen
+            int bottomRoom = rowsBelowDock > 0 ? (int) (AppAdapter.BOTTOM_ROOM_DP * density) : -(int) (6 * density);
+            int want = Math.max(shelfClearance, h - dockRow - gridRows - bottomRoom);
             // Where the rows cannot fit even at the smallest tile (3 rows with the title on), the title keeps its
             // room above the dock and the last rows run off the bottom instead of the title drawing over the clock.
             if (MainActivity.this.dockRow && cfg.dockTitle && rowsBelowDock > 0) want = Math.max(want, (int) (AppAdapter.TITLE_ROOM_DP * density));
@@ -553,14 +559,23 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             grid.post(this::refitGlass);
         });
 
-        // Keep the glass glued to its tile while the grid scrolls.
+        // Keep the glass glued to its tile while the grid scrolls, and update wallpaper scroll blur.
         grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
-                if (!glassShown) return;
-                glassTargetY -= dy;
-                glassScrollShift -= dy;
-                glass.setTranslationY(glass.getTranslationY() - dy);
+                if (glassShown) {
+                    glassTargetY -= dy;
+                    glassScrollShift -= dy;
+                    glass.setTranslationY(glass.getTranslationY() - dy);
+                }
+                updateScrollBlur(rv);
+            }
+
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView rv, int newState) {
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    updateScrollBlur(rv);
+                }
             }
         });
 
@@ -783,6 +798,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (openInputsIfAsked(intent)) return;
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
         grid.scrollToPosition(0);
+        if (wallpaperPlayer != null) wallpaperPlayer.setBlurProgress(0f);
         lastFocused = 0;
         lastFocusedKey = adapter.getItemCount() > 0 ? adapter.keyAt(0) : null;
         if (stopped) {
@@ -1574,6 +1590,23 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
+    private void updateScrollBlur(RecyclerView rv) {
+        if (wallpaperPlayer == null) return;
+        RecyclerView.LayoutManager lm = rv.getLayoutManager();
+        if (lm == null || lm.getChildCount() == 0) return;
+        View firstChild = lm.getChildAt(0);
+        int firstPos = rv.getChildAdapterPosition(firstChild);
+        float progress;
+        if (firstPos == 0) {
+            float scrolled = rv.getPaddingTop() - firstChild.getTop();
+            float maxScroll = 120f * density;
+            progress = Math.max(0f, Math.min(1f, scrolled / maxScroll));
+        } else {
+            progress = 1f;
+        }
+        wallpaperPlayer.setBlurProgress(progress);
+    }
+
     // ---- top shelf -------------------------------------------------------------------------------
 
     private void showHero(int position, float dockTopInRoot) {
@@ -1783,13 +1816,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             Canvas canvas = new Canvas(bmp);
             Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
             if (cinematic) {
-                // Higher and stronger, from the corner away from the shelf's text: the app's colour floods
-                // the top of the screen over its artwork, and the scrim keeps the text side dark.
+                // Positioned at the bottom-left corner with a smooth multi-stop falloff
                 boolean rtl = getResources().getBoolean(R.bool.rtl_menu_bar);
+                paint.setDither(true);
                 paint.setShader(new RadialGradient(
-                        w * (rtl ? 0.20f : 0.80f), h * 0.06f, w * 0.78f,
-                        new int[]{0xA6FFFFFF, 0x47FFFFFF, 0x00FFFFFF},
-                        new float[]{0f, 0.5f, 1f},
+                        w * (rtl ? 0.82f : 0.18f), h * 0.82f, w * 0.30f,
+                        new int[]{0x99FFFFFF, 0x55FFFFFF, 0x1AFFFFFF, 0x00FFFFFF},
+                        new float[]{0f, 0.35f, 0.70f, 1f},
                         Shader.TileMode.CLAMP));
             } else if (Config.GLOW_HORIZON.equals(glowStyle)) {
                 // The colour washes down from the top edge and fades out three quarters of the way down,

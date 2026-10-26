@@ -1,0 +1,11 @@
+﻿com.miui.tv.analytics
+com.xiaomi.statistic
+com.google.android.feedback
+com.google.android.tv.bugreportsender
+com.xiaomi.floatingframe
+com.google.android.leanbacklauncher.recommendations
+android.autoinstalls.config.xioami.dangal
+com.xiaomi.mitv.tvmanager
+com.xiaomi.mitv.handbook
+com.xiaomo.tv.milegal
+com.xiaomi.mimusic2

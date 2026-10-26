@@ -33,6 +33,7 @@ import java.util.concurrent.Executors;
 final class WallpaperPlayer {
     private final FrameLayout root;
     private final ImageView image;
+    private final ImageView blurView;
     private final List<File> files;
     private final long interval;
     private final String order;
@@ -47,6 +48,7 @@ final class WallpaperPlayer {
     private final int dimColor;
     /** The picture on screen, released once the next one has been drawn. */
     private Bitmap current;
+    private Bitmap currentBlur;
     private boolean active;
     private boolean closed;
     private boolean loading;
@@ -86,11 +88,17 @@ final class WallpaperPlayer {
         image = new ImageView(context);
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        blurView = new ImageView(context);
+        blurView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        blurView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        blurView.setAlpha(0f);
         names = config.wallpaperCaptions && config.wallpaperEnabled && !files.isEmpty()
                 ? WallpaperCaptions.read(files.get(0).getParentFile()) : Collections.emptyMap();
         caption = names.isEmpty() ? null : makeCaption(context, root);
         if (config.wallpaperEnabled && !files.isEmpty()) {
             root.addView(image, 0, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            root.addView(blurView, 1, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             showFirst();
         }
@@ -107,9 +115,9 @@ final class WallpaperPlayer {
         File first = WallpaperRotation.find(playable, previous);
         if (first == null) first = WallpaperRotation.pick(playable, previous, order, random);
         while (first != null) {
-            Bitmap bitmap = decode(first);
-            if (bitmap != null) {
-                show(bitmap);
+            WallpaperDecoded decoded = decode(first);
+            if (decoded != null && decoded.sharp != null) {
+                show(decoded.sharp, decoded.blur);
                 // The picture covers the whole screen: the root's plain colour under it is overdraw.
                 root.setBackground(null);
                 displayed = first.getName();
@@ -143,13 +151,27 @@ final class WallpaperPlayer {
             sunDay = now.toLocalDate();
             sun = WallpaperMood.sun(sunDay, latitude, longitude, ZoneId.systemDefault());
         }
-        return WallpaperMood.select(files, moods, WallpaperMood.timeOfDay(now.getHour() * 60 + now.getMinute(), sun[0], sun[1]));
+        return WallpaperMood.select(files, moods, WallpaperMood.timeOfDay(now.getHour() * 60 + now.getMinute(), sun[0], sun[1], moods.containsKey(WallpaperMood.AFTERNOON)));
     }
 
     void close() {
         active = false;
         closed = true;
         decoder.shutdownNow();
+        if (current != null) {
+            current.recycle();
+            current = null;
+        }
+        if (currentBlur != null) {
+            currentBlur.recycle();
+            currentBlur = null;
+        }
+    }
+
+    void setBlurProgress(float progress) {
+        if (blurView == null) return;
+        float clamped = Math.max(0f, Math.min(1f, progress));
+        blurView.setAlpha(clamped);
     }
 
     void update() {
@@ -166,20 +188,23 @@ final class WallpaperPlayer {
         File next = selected;
         loading = true;
         decoder.execute(() -> {
-            Bitmap bitmap = decode(next);
+            WallpaperDecoded result = decode(next);
             root.post(() -> {
                 loading = false;
                 if (closed || !active) {
-                    if (bitmap != null) bitmap.recycle();
+                    if (result != null) {
+                        if (result.sharp != null) result.sharp.recycle();
+                        if (result.blur != null) result.blur.recycle();
+                    }
                     return;
                 }
-                if (bitmap == null) {
+                if (result == null || result.sharp == null) {
                     files.remove(next);
                     Log.w("TvHome.Wallpaper", "Skipping unreadable image: " + next.getName());
                     update();
                     return;
                 }
-                show(bitmap);
+                show(result.sharp, result.blur);
                 displayed = next.getName();
                 showCaption(true);
                 if (!displayed.equals(previous) || changed == 0) {
@@ -247,14 +272,92 @@ final class WallpaperPlayer {
     }
 
     /** Puts a picture on screen and releases the previous one after a frame has drawn the new one. */
-    private void show(Bitmap bitmap) {
+    private void show(Bitmap sharp, Bitmap blur) {
         Bitmap old = current;
-        current = bitmap;
-        image.setImageBitmap(bitmap);
-        if (old != null && old != bitmap) image.postDelayed(old::recycle, 500);
+        Bitmap oldBlur = currentBlur;
+        current = sharp;
+        currentBlur = blur;
+        image.setImageBitmap(sharp);
+        if (blurView != null) blurView.setImageBitmap(blur);
+        if (old != null && old != sharp) image.postDelayed(old::recycle, 500);
+        if (oldBlur != null && oldBlur != blur) image.postDelayed(oldBlur::recycle, 500);
     }
 
-    private Bitmap decode(File file) {
+    private static int[] fastBoxBlur(int[] src, int w, int h, int radius, boolean horizontal) {
+        int[] dst = new int[src.length];
+        int lines = horizontal ? h : w, length = horizontal ? w : h, span = 2 * radius + 1;
+        for (int line = 0; line < lines; line++) {
+            int lineOffset = horizontal ? line * w : line;
+            int step = horizontal ? 1 : w;
+
+            int r = 0, g = 0, b = 0;
+            int firstPixel = src[lineOffset];
+            r = android.graphics.Color.red(firstPixel) * (radius + 1);
+            g = android.graphics.Color.green(firstPixel) * (radius + 1);
+            b = android.graphics.Color.blue(firstPixel) * (radius + 1);
+            for (int k = 1; k <= radius; k++) {
+                int idx = lineOffset + Math.min(k, length - 1) * step;
+                int p = src[idx];
+                r += android.graphics.Color.red(p);
+                g += android.graphics.Color.green(p);
+                b += android.graphics.Color.blue(p);
+            }
+
+            for (int i = 0; i < length; i++) {
+                dst[lineOffset + i * step] = android.graphics.Color.rgb(r / span, g / span, b / span);
+                int removeIdx = lineOffset + Math.max(0, i - radius) * step;
+                int addIdx = lineOffset + Math.min(length - 1, i + radius + 1) * step;
+                int pRemove = src[removeIdx];
+                int pAdd = src[addIdx];
+                r += android.graphics.Color.red(pAdd) - android.graphics.Color.red(pRemove);
+                g += android.graphics.Color.green(pAdd) - android.graphics.Color.green(pRemove);
+                b += android.graphics.Color.blue(pAdd) - android.graphics.Color.blue(pRemove);
+            }
+        }
+        return dst;
+    }
+
+    private static Bitmap createBlurredBitmap(Bitmap src) {
+        try {
+            int bw = 384, bh = 216;
+            Bitmap small = Bitmap.createScaledBitmap(src, bw, bh, true);
+            int[] px = new int[bw * bh];
+            small.getPixels(px, 0, bw, 0, 0, bw, bh);
+            for (int pass = 0; pass < 3; pass++) {
+                px = fastBoxBlur(px, bw, bh, 7, true);
+                px = fastBoxBlur(px, bw, bh, 7, false);
+            }
+            for (int i = 0; i < px.length; i++) {
+                int p = px[i];
+                int r = (android.graphics.Color.red(p) * 205) / 255;
+                int g = (android.graphics.Color.green(p) * 205) / 255;
+                int b = (android.graphics.Color.blue(p) * 205) / 255;
+                px[i] = android.graphics.Color.rgb(r, g, b);
+            }
+            Bitmap out = small.isMutable() ? small : small.copy(Bitmap.Config.ARGB_8888, true);
+            if (out != small) small.recycle();
+            out.setPixels(px, 0, bw, 0, 0, bw, bh);
+            Bitmap gpu = out.copy(Bitmap.Config.HARDWARE, false);
+            if (gpu != null) {
+                out.recycle();
+                return gpu;
+            }
+            return out;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static class WallpaperDecoded {
+        final Bitmap sharp;
+        final Bitmap blur;
+        WallpaperDecoded(Bitmap sharp, Bitmap blur) {
+            this.sharp = sharp;
+            this.blur = blur;
+        }
+    }
+
+    private WallpaperDecoded decode(File file) {
         try {
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inJustDecodeBounds = true;
@@ -276,12 +379,11 @@ final class WallpaperPlayer {
             Bitmap decoded = BitmapFactory.decodeFile(file.getPath(), options);
             if (decoded == null) return null;
             if (dimColor != 0) new Canvas(decoded).drawColor(dimColor);
-            // One copy in GPU memory instead of a software bitmap plus its texture; the decode stays off the UI
-            // thread for rotations, and Home's return no longer uploads 4-8 MB to the GPU.
+            Bitmap blur = createBlurredBitmap(decoded);
             Bitmap gpu = decoded.copy(Bitmap.Config.HARDWARE, false);
-            if (gpu == null) return decoded;
-            decoded.recycle();
-            return gpu;
+            Bitmap sharp = gpu != null ? gpu : decoded;
+            if (gpu != null && gpu != decoded) decoded.recycle();
+            return new WallpaperDecoded(sharp, blur);
         } catch (Exception | OutOfMemoryError failure) {
             return null;
         }
