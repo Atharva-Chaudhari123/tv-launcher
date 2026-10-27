@@ -504,6 +504,10 @@ final class Config {
             wallpapers.addAll(WallpaperRotation.images(new File(ctx.getFilesDir(), "wallpapers")));
         }
         if (wallpapers.isEmpty() && wallpaper != null) wallpapers.add(wallpaper);
+        if (wallpapers.isEmpty() && wallpaperEnabled) {
+            File krishna = new File(ctx.getFilesDir(), "wallpapers/morning.jpg");
+            if (krishna.exists()) wallpapers.add(krishna);
+        }
         // An on-TV wallpaper pick overrides the theme: a filename from the wallpapers/
         // collection, or "none". Unset means the theme decides (off by default).
         String wallpaperChoice = choices.getString(WALLPAPER_CHOICE_KEY, null);

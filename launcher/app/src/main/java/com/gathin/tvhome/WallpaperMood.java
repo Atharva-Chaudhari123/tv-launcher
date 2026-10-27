@@ -4,6 +4,7 @@ import java.io.File;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,12 +52,19 @@ final class WallpaperMood {
         return times != null ? times : new int[]{DEFAULT_SUNRISE, DEFAULT_SUNSET};
     }
 
-    /** The pictures in the mood's group, in the collection's order; all of them when the group has none. */
+    /** The pictures in the mood's group; falls back to Krishna (morning.jpg) when missing or empty. */
     static List<File> select(List<File> all, Map<String, Set<String>> groups, String mood) {
-        Set<String> names = groups.get(mood);
-        if (names == null) return all;
-        List<File> group = new ArrayList<>();
-        for (File file : all) if (names.contains(file.getName())) group.add(file);
-        return group.isEmpty() ? all : group;
+        Set<String> names = groups != null ? groups.get(mood) : null;
+        if (names != null) {
+            List<File> group = new ArrayList<>();
+            for (File file : all) if (names.contains(file.getName())) group.add(file);
+            if (!group.isEmpty()) return group;
+        }
+        for (File file : all) {
+            if ("morning.jpg".equalsIgnoreCase(file.getName())) {
+                return Collections.singletonList(file);
+            }
+        }
+        return all;
     }
 }

@@ -114,6 +114,14 @@ final class WallpaperPlayer {
         List<File> playable = playable();
         File first = WallpaperRotation.find(playable, previous);
         if (first == null) first = WallpaperRotation.pick(playable, previous, order, random);
+        if (first == null) {
+            for (File file : files) {
+                if ("morning.jpg".equalsIgnoreCase(file.getName())) {
+                    first = file;
+                    break;
+                }
+            }
+        }
         while (first != null) {
             WallpaperDecoded decoded = decode(first);
             if (decoded != null && decoded.sharp != null) {
