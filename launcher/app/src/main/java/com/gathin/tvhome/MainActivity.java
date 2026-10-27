@@ -1592,6 +1592,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void updateScrollBlur(RecyclerView rv) {
         if (wallpaperPlayer == null) return;
+        if (!rv.canScrollVertically(-1)) {
+            wallpaperPlayer.setBlurProgress(0f);
+            return;
+        }
         RecyclerView.LayoutManager lm = rv.getLayoutManager();
         if (lm == null || lm.getChildCount() == 0) return;
         View firstChild = lm.getChildAt(0);
