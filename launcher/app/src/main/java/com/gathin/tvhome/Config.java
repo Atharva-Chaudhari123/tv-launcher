@@ -484,7 +484,7 @@ final class Config {
         // A theme can also switch the wallpaper off while the file is still there.
         boolean wallpaperEnabled = json == null || bool(json, "wallpaper", true);
         if (!wallpaperEnabled) wallpaper = null;
-        int rotationMinutes = json == null ? 0 : integer(json, "wallpaper_rotation_minutes", 0, 0, 1440);
+        int rotationMinutes = json == null ? (wallpaperMoods.isEmpty() ? 0 : 30) : integer(json, "wallpaper_rotation_minutes", wallpaperMoods.isEmpty() ? 0 : 30, 0, 1440);
         int wallpaperDim = json == null ? 0 : integer(json, "wallpaper_dim", 0, 0, 90);
         int dockOpacity = json == null ? 100 : integer(json, "dock_opacity", 100, 30, 100);
         dockOpacity = chosenDockOpacity(choices.getInt(DOCK_OPACITY_KEY, -1), dockOpacity);
@@ -496,12 +496,15 @@ final class Config {
         if (rotationMinutes > 0 && dir != null && wallpaperEnabled) {
             wallpapers.addAll(WallpaperRotation.images(new File(dir, "wallpapers")));
         }
+        if (wallpapers.isEmpty() && wallpaperEnabled) {
+            ensureBundledWallpapers(ctx);
+            wallpapers.addAll(WallpaperRotation.images(new File(ctx.getFilesDir(), "wallpapers")));
+        }
         if (wallpapers.isEmpty() && wallpaper != null) wallpapers.add(wallpaper);
         // An on-TV wallpaper pick overrides the theme: a filename from the wallpapers/
         // collection, or "none". Unset means the theme decides (off by default).
         String wallpaperChoice = choices.getString(WALLPAPER_CHOICE_KEY, null);
-        List<File> chosen = WallpaperRotation.chosen(dir == null ? Collections.emptyList()
-                : WallpaperRotation.images(new File(dir, "wallpapers")), wallpaper, wallpaperChoice);
+        List<File> chosen = WallpaperRotation.chosen(wallpapers, wallpaper, wallpaperChoice);
         if (chosen != null) {
             wallpapers.clear();
             wallpapers.addAll(chosen);
@@ -604,7 +607,8 @@ final class Config {
         if (!mounted) return read(copy);
         JSONObject json = read(file);
         if (json == null) {
-            copy.delete();
+            json = readAsset(ctx, FILE_NAME);
+            if (json == null) copy.delete();
         } else {
             try (FileOutputStream out = new FileOutputStream(copy)) {
                 out.write(json.toString().getBytes(StandardCharsets.UTF_8));
@@ -613,6 +617,44 @@ final class Config {
             }
         }
         return json;
+    }
+
+    private static JSONObject readAsset(Context ctx, String name) {
+        try (InputStream in = ctx.getAssets().open(name)) {
+            byte[] buf = new byte[in.available()];
+            int n = 0, r;
+            while (n < buf.length && (r = in.read(buf, n, buf.length - n)) > 0) n += r;
+            String text = new String(buf, StandardCharsets.UTF_8);
+            if (text.startsWith("\uFEFF")) text = text.substring(1);
+            return new JSONObject(text);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static void ensureBundledWallpapers(Context ctx) {
+        try {
+            File internalDir = new File(ctx.getFilesDir(), "wallpapers");
+            if (!internalDir.exists()) internalDir.mkdirs();
+            String[] assets = ctx.getAssets().list("wallpapers");
+            if (assets != null) {
+                for (String name : assets) {
+                    File target = new File(internalDir, name);
+                    if (!target.exists() || target.length() == 0) {
+                        try (InputStream in = ctx.getAssets().open("wallpapers/" + name);
+                             FileOutputStream out = new FileOutputStream(target)) {
+                            byte[] buf = new byte[8192];
+                            int r;
+                            while ((r = in.read(buf)) != -1) {
+                                out.write(buf, 0, r);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "failed extracting bundled wallpapers: " + e.getMessage());
+        }
     }
 
     private static JSONObject read(File file) {

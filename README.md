@@ -51,10 +51,9 @@ The launcher automatically schedules and switches wallpapers in the background a
 
 | Mood | Time Window | Scene / Wallpaper |
 | :--- | :--- | :--- |
-| 🌅 **Morning** | `07:00 AM – 12:00 PM` | Serene Lord Krishna illustration |
-| ☀️ **Afternoon** | `12:00 PM – 05:00 PM` | Minions in Redwood Forest |
-| 🌇 **Evening** | `05:00 PM – 07:00 PM` | Samurai overlooking Mt. Fuji at twilight |
-| 🌙 **Night** | `07:00 PM – 07:00 AM` | Two cats sitting on a roof under starry night sky |
+| 🌅 **Morning** | `00:00 – 12:00` (12:00 AM – 12:00 PM) | Serene Lord Krishna illustration |
+| ☀️ **Afternoon** | `12:00 – 17:00` (12:00 PM – 05:00 PM) | Two cats sitting on a roof |
+| 🌇 **Evening** | `17:00 – 00:00` (05:00 PM – 12:00 AM) | Samurai overlooking Mt. Fuji at twilight |
 
 *(All wallpapers are stored in `themes/visionos/wallpapers/` and mapped in `themes/visionos/config.json`)*.
 

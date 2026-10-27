@@ -12,8 +12,7 @@
   "wallpaper_moods": {
     "morning": ["morning.jpg"],
     "afternoon": ["afternoon.jpg"],
-    "evening": ["evening.jpg"],
-    "night": ["night.jpg"]
+    "evening": ["evening.jpg"]
   },
   "cinematic_home": true,
   "cinematic_art": 0,

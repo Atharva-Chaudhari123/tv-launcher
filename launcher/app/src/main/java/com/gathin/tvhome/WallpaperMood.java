@@ -33,10 +33,9 @@ final class WallpaperMood {
     }
 
     static String timeOfDay(int minute, int sunrise, int sunset, boolean hasAfternoon) {
-        if (minute >= sunrise && minute < NOON) return MORNING;
+        if (minute < NOON) return MORNING;
         if (hasAfternoon && minute >= NOON && minute < EVENING_START) return AFTERNOON;
-        if (minute >= (hasAfternoon ? EVENING_START : NOON) && minute < sunset + DUSK_MINUTES) return EVENING;
-        return NIGHT;
+        return EVENING;
     }
 
     /** That day's {sunrise, sunset} at config.xml's latitude and longitude; the defaults when either is unusable. */
